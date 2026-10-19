@@ -29,55 +29,36 @@ initializeRandomSeed()
 #endregion VEXcode Generated Robot Configuration
 # ------------------------------------------
 # 
-#   Project:     VEXcode EXP UNO - Version 2.5
+#   Project:     VEXcode EXP UNO - Version 3.5
 #   Author:      VEX
-#   Description: - No Legal Moves pop-up changed to "Draw Cards"
-#                - Verified Auto-Stacking Logic: Playing a card (e.g. Yellow 5)
-#                  automatically stacks all matching rank cards (e.g. another Yellow 5
-#                  or rank 5 card) with ZERO prompts when "Stack Similar" is ON
-#                - Auto +2 Stacking ("Stack +2s") without prompts when holding a +2
-#                - "TOOK CARDS" pop-up displayed if unable to counter a +2
-#                - Draw Till Playable (Draws at center until playable card found)
-#                - Startup Main Menu ("Play Game" / "Rules")
-#                - Rules Menu Color Indicator: RED = OFF, GREEN = ON
+#   Description: - Reverted to Full Graphical UNO Framework.
+#                - Calibrated Movement Engine:
+#                  * Single Continuous Forward Drive (`FORWARD_DEGREES = 850`).
+#                  * Tuned Turn Calibration (`TURN_90_DEGREES = 228`).
+#                  * Repositioning Right Alignment (`ALIGN_RIGHT_DEGREES = 12`).
+#                - Full House Rules, Attack Handling, Custom Menus & Graphics preserved.
 # 
 # ------------------------------------------
 
-# Library imports
 from vex import *
 
-# Create events for robot movement
-FWD = Event()
-RT = Event()
-LT = Event()
+# ==========================================
+# MOVEMENT CALIBRATION & SETUP
+# ==========================================
 
-# Motor callbacks for 90-degree turns and forward movement
-def motor1_move_forward():
-    motor_1.spin_for(FORWARD, 425, DEGREES)
+DRIVE_SPEED = 40          # Straight driving percentage speed
+TURN_SPEED = 30           # Precise turning percentage speed
+FORWARD_DEGREES = 850     # Single continuous forward motion distance
+TURN_90_DEGREES = 228     # Standard 90-degree turn calibration
+ALIGN_RIGHT_DEGREES = 12  # Fine-tuned right adjustment during 180° turns/repositioning
 
-def motor5_move_forward():
-    motor_5.spin_for(FORWARD, 425, DEGREES)
+def configure_motors():
+    motor_1.set_stopping(HOLD)
+    motor_5.set_stopping(HOLD)
+    motor_1.set_velocity(DRIVE_SPEED, PERCENT)
+    motor_5.set_velocity(DRIVE_SPEED, PERCENT)
 
-def motor1_turn_right():
-    motor_1.spin_for(FORWARD, 220, DEGREES)
-
-def motor5_turn_right():
-    motor_5.spin_for(REVERSE, 220, DEGREES)
-
-def motor1_turn_left():
-    motor_1.spin_for(REVERSE, 220, DEGREES)
-
-def motor5_turn_left():
-    motor_5.spin_for(FORWARD, 220, DEGREES)
-
-# Register callback functions
-FWD(motor1_move_forward)
-FWD(motor5_move_forward)
-RT(motor1_turn_right)
-RT(motor5_turn_right)
-LT(motor1_turn_left)
-LT(motor5_turn_left)
-wait(15, MSEC)
+configure_motors()
 
 # ==========================================
 # GLOBAL CUSTOM RULES CONFIGURATION
@@ -104,7 +85,6 @@ def setup_custom_rules_menu():
         brain.screen.set_fill_color(Color.BLACK)
         brain.screen.clear_screen()
         
-        # Header Title
         brain.screen.set_cursor(1, 1)
         brain.screen.set_pen_color(Color.WHITE)
         brain.screen.print("CUSTOM RULES MENU"[:16])
@@ -116,7 +96,6 @@ def setup_custom_rules_menu():
             is_on = custom_rules[key]
             status = "ON" if is_on else "OFF"
             
-            # RED if OFF, GREEN if ON
             if is_on:
                 brain.screen.set_pen_color(Color.GREEN)
             else:
@@ -173,9 +152,6 @@ def start_main_menu():
 # ==========================================
 
 def set_color_by_card(card_name):
-    """
-    Sets text pen color on the EXP Brain screen based on the UNO card color.
-    """
     if "Red" in card_name:
         brain.screen.set_pen_color(Color.RED)
     elif "Green" in card_name:
@@ -386,9 +362,6 @@ def card_to_gfx_args(card_name):
 
 
 def flash_uno_card_back(count=1):
-    """
-    Flashes the UNO card back graphic `count` times.
-    """
     for _ in range(count):
         draw_card_full_screen("BACK", "N")
         wait(600, MSEC)
@@ -397,32 +370,57 @@ def flash_uno_card_back(count=1):
         wait(200, MSEC)
 
 # ==========================================
-# PHASE 1: ROBOT MOVEMENT & DANCE FUNCTIONS
+# HIGH-PRECISION ROBOT MOVEMENT FUNCTIONS
 # ==========================================
 
 def robot_drive_forward_2():
-    for _ in range(2):
-        FWD.broadcast()
-        wait(800, MSEC)
+    """
+    Drives forward in a single continuous smooth motion (850 degrees).
+    """
+    motor_1.set_velocity(DRIVE_SPEED, PERCENT)
+    motor_5.set_velocity(DRIVE_SPEED, PERCENT)
+    
+    motor_1.spin_for(FORWARD, FORWARD_DEGREES, DEGREES, False)
+    motor_5.spin_for(FORWARD, FORWARD_DEGREES, DEGREES, True)
+    wait(150, MSEC)
 
 
 def robot_turn_90_right():
-    RT.broadcast()
-    wait(600, MSEC)
+    """
+    Executes a right turn using calibrated rotation angles (228°).
+    """
+    motor_1.set_velocity(TURN_SPEED, PERCENT)
+    motor_5.set_velocity(TURN_SPEED, PERCENT)
+    
+    motor_1.spin_for(FORWARD, TURN_90_DEGREES, DEGREES, False)
+    motor_5.spin_for(REVERSE, TURN_90_DEGREES, DEGREES, True)
+    wait(150, MSEC)
+    
+    motor_1.set_velocity(DRIVE_SPEED, PERCENT)
+    motor_5.set_velocity(DRIVE_SPEED, PERCENT)
 
 
 def robot_turn_180():
+    """
+    Executes a full 180° turn with a 12° micro-correction right adjustment.
+    """
     robot_turn_90_right()
+    wait(100, MSEC)
     robot_turn_90_right()
+    wait(100, MSEC)
+    
+    if ALIGN_RIGHT_DEGREES > 0:
+        motor_1.set_velocity(TURN_SPEED, PERCENT)
+        motor_5.set_velocity(TURN_SPEED, PERCENT)
+        motor_1.spin_for(FORWARD, ALIGN_RIGHT_DEGREES, DEGREES, False)
+        motor_5.spin_for(REVERSE, ALIGN_RIGHT_DEGREES, DEGREES, True)
+        wait(100, MSEC)
+    
+    motor_1.set_velocity(DRIVE_SPEED, PERCENT)
+    motor_5.set_velocity(DRIVE_SPEED, PERCENT)
 
 
 def robot_deliver_card(played_card, is_uno=False, is_final=False):
-    """
-    Shows played card face-up while driving to center.
-    Plays SoundType.SIREN2 and overlays "UNO!" on second-to-last card.
-    Turns screen black/blank when turning around 180° at center to return.
-    Displays "CARD PLAYED" upon return to player.
-    """
     gfx_args = card_to_gfx_args(played_card)
     draw_card_full_screen(gfx_args[0], gfx_args[1])
 
@@ -456,13 +454,6 @@ def robot_deliver_card(played_card, is_uno=False, is_final=False):
 
 
 def robot_fetch_card(count=1):
-    """
-    1. Drives to center with a blank/black screen.
-    2. Shows the UNO card back graphic `count` times AT THE CENTER.
-    3. Turns 180 degrees.
-    4. Drives back to player with a blank/black screen.
-    5. Displays "CARD ADDED" upon return.
-    """
     brain.screen.set_fill_color(Color.BLACK)
     brain.screen.clear_screen()
     robot_drive_forward_2()
@@ -485,11 +476,6 @@ def robot_fetch_card(count=1):
 
 
 def robot_fetch_until_playable(hand, deck, top_card):
-    """
-    Drives to center ONCE, stays at center repeatedly drawing cards until
-    a playable card is found (or deck runs out), then returns to player ONCE.
-    Displays total amount drawn (e.g. '3 CARDS DREW').
-    """
     brain.screen.set_fill_color(Color.BLACK)
     brain.screen.clear_screen()
     robot_drive_forward_2()
@@ -532,16 +518,9 @@ def victory_dance():
     brain.screen.set_cursor(2, 1)
     brain.screen.print("WINNER!"[:16])
     
-    RT.broadcast()
-    wait(400, MSEC)
-    LT.broadcast()
-    wait(400, MSEC)
-    LT.broadcast()
-    wait(400, MSEC)
-    RT.broadcast()
-    wait(400, MSEC)
-    FWD.broadcast()
-    wait(500, MSEC)
+    robot_turn_90_right()
+    robot_turn_90_right()
+    robot_drive_forward_2()
 
 # ==========================================
 # PHASE 2: DECK & HAND CORE
@@ -650,10 +629,6 @@ def check_game_over(hand):
 # ==========================================
 
 def select_menu_option(header_title, options, option_color=Color.GREEN):
-    """
-    Standard menu renderer for 5-row x 16-col VEX EXP Screen.
-    Displays option text in GREEN color by default.
-    """
     selected_index = 0
     
     while True:
@@ -661,17 +636,14 @@ def select_menu_option(header_title, options, option_color=Color.GREEN):
         brain.screen.set_pen_color(Color.WHITE)
         brain.screen.clear_screen()
         
-        # Row 1: Header Title (White)
         brain.screen.set_cursor(1, 1)
         brain.screen.print(header_title[:16])
         
-        # Row 3: Selection Option (Green Text)
         brain.screen.set_cursor(3, 1)
         brain.screen.set_pen_color(option_color)
         opt_text = "< " + str(options[selected_index]) + " >"
         brain.screen.print(opt_text[:16])
         
-        # Row 5: Controls (White)
         brain.screen.set_pen_color(Color.WHITE)
         brain.screen.set_cursor(5, 1)
         brain.screen.print("[L/R]Sel  [v]OK"[:16])
@@ -694,10 +666,6 @@ def select_menu_option(header_title, options, option_color=Color.GREEN):
 
 
 def select_menu_option_indexed(header_title, options, option_color=Color.GREEN):
-    """
-    Menu renderer that returns both (selected_index, option_string).
-    Displays option text in GREEN color.
-    """
     selected_index = 0
     
     while True:
@@ -705,17 +673,14 @@ def select_menu_option_indexed(header_title, options, option_color=Color.GREEN):
         brain.screen.set_pen_color(Color.WHITE)
         brain.screen.clear_screen()
         
-        # Row 1: Header Title (White)
         brain.screen.set_cursor(1, 1)
         brain.screen.print(header_title[:16])
         
-        # Row 3: Selection Option (Green Text)
         brain.screen.set_cursor(3, 1)
         brain.screen.set_pen_color(option_color)
         opt_text = "< " + str(options[selected_index]) + " >"
         brain.screen.print(opt_text[:16])
         
-        # Row 5: Controls (White)
         brain.screen.set_pen_color(Color.WHITE)
         brain.screen.set_cursor(5, 1)
         brain.screen.print("[L/R]Sel  [v]OK"[:16])
@@ -738,10 +703,6 @@ def select_menu_option_indexed(header_title, options, option_color=Color.GREEN):
 
 
 def view_full_hand(hand):
-    """
-    Displays player's deck cleanly with NO header clutter.
-    Each card's text is colored matching its UNO card color (Red, Green, Blue, Yellow).
-    """
     page = 0
     while True:
         max_page = (len(hand) - 1) // 8 if len(hand) > 0 else 0
@@ -751,7 +712,6 @@ def view_full_hand(hand):
         brain.screen.set_fill_color(Color.BLACK)
         brain.screen.clear_screen()
         
-        # Rows 1 to 4: Clean grid of 8 cards per page with colored text
         slots = [[1, 1], [1, 9], [2, 1], [2, 9], [3, 1], [3, 9], [4, 1], [4, 9]]
         start_idx = page * 8
         end_idx = min(start_idx + 8, len(hand))
@@ -764,14 +724,12 @@ def view_full_hand(hand):
             for i in range(start_idx, end_idx):
                 slot = slots[i - start_idx]
                 card_item = hand[i]
-                
                 set_color_by_card(card_item)
                 
                 brain.screen.set_cursor(slot[0], slot[1])
                 lbl = str(i + 1) + ":" + abbreviate_card(card_item)
                 brain.screen.print(lbl[:7])
                 
-        # Row 5: Navigation prompt in standard white text
         brain.screen.set_pen_color(Color.WHITE)
         brain.screen.set_cursor(5, 1)
         if max_page > 0:
@@ -797,10 +755,6 @@ def view_full_hand(hand):
 
 
 def input_top_card():
-    """
-    Prompts for Top Card Color first, then Top Card Value.
-    Directly returns card name with options displayed in GREEN text.
-    """
     chosen_color = select_menu_option("TOP CARD COLOR:", ["Red", "Yellow", "Green", "Blue", "Wild"])
     
     if chosen_color == "Wild":
@@ -820,10 +774,6 @@ def input_top_card():
 
 
 def handle_draw_action(hand, deck, top_card):
-    """
-    Handles drawing cards. If custom rule 'draw_until_playable' is ON,
-    robot stays at center repeatedly drawing cards until a playable card is found.
-    """
     if custom_rules["draw_until_playable"]:
         robot_fetch_until_playable(hand, deck, top_card)
     else:
@@ -837,20 +787,12 @@ def handle_draw_action(hand, deck, top_card):
 
 
 def process_player_turn(discard_card, hand, deck):
-    """
-    Handles player turn with options:
-    1. Play Card
-    2. Draw 1 Card
-    3. View Hand
-    Auto-stacks matching rank cards (e.g., Yellow 5 + Yellow 5) without prompts when 'stack_similar' rule is ON.
-    """
     while True:
         turn_menu_title = "YOUR MOVE:"
         options = ["Play Card", "Draw 1 Card", "View Hand"]
 
         choice = select_menu_option(turn_menu_title, options)
 
-        # 1. Play Card option
         if choice == "Play Card":
             legal_indices = get_legal_moves(hand, discard_card)
 
@@ -882,7 +824,6 @@ def process_player_turn(discard_card, hand, deck):
 
             print(">>> YOU PLAYED: " + played_card)
 
-            # AUTOMATIC STACKING: Automatically play all other cards with matching rank (e.g., two Yellow 5s)
             if custom_rules["stack_similar"]:
                 played_rank = get_card_rank(played_card)
                 matching_indices = [i for i, c in enumerate(hand) if get_card_rank(c) == played_rank]
@@ -892,7 +833,6 @@ def process_player_turn(discard_card, hand, deck):
                         stacked_card = hand.pop(m_idx)
                         print(">>> AUTO STACKED MATCH PLAYED: " + stacked_card)
 
-            # Delivery to center with card face-up, blank return, and "CARD PLAYED" notification
             if len(hand) == 1:
                 robot_deliver_card(played_card, is_uno=True)
             elif len(hand) == 0:
@@ -902,61 +842,50 @@ def process_player_turn(discard_card, hand, deck):
 
             return played_card
 
-        # 2. Draw 1 Card option
         elif choice == "Draw 1 Card":
             handle_draw_action(hand, deck, discard_card)
             return discard_card
 
-        # 3. View Hand option
         elif choice == "View Hand":
             view_full_hand(hand)
             continue
 
 
 # ==========================================
-# MAIN GAME EXECUTION (VERSION 2.5)
+# MAIN GAME EXECUTION (VERSION 3.5)
 # ==========================================
 
-# 1. Initialize deck, shuffle deck, and PRINT SHUFFLED DECK TO CONSOLE
 uno_deck = build_uno_deck()
 shuffle_deck(uno_deck)
 print("=== SHUFFLED DECK ===")
 print(uno_deck)
 
-# 2. Deal starting hand and PRINT STARTING HAND TO CONSOLE IMMEDIATELY
 player_hand = deal_hand(uno_deck, 7)
 print("\n=== STARTING HAND (7 CARDS) ===")
 print(player_hand)
 
 print("\n==================================")
-print("=== NEW UNO GAME STARTED (v2.5) ===")
+print("=== NEW UNO GAME STARTED (v3.5) ===")
 
-# 3. DISPLAY STARTUP MAIN MENU ("Play Game" or "Rules")
 start_main_menu()
 
-# 4. CONTINUOUS GAME LOOP
 while True:
     if check_game_over(player_hand):
         break
 
-    # STEP 1: Show player's deck/hand cleanly with colored text
     view_full_hand(player_hand)
 
-    # STEP 2: Ask INCOMING ATTACK? (Options: None, Draw 2, Draw 4 in GREEN text)
     attack_choice = select_menu_option("INCOMING ATTACK?", ["None", "Draw 2", "Draw 4"])
     if attack_choice != "None":
         penalty = 2 if attack_choice == "Draw 2" else 4
         
-        # CUSTOM RULE: Stack +2s
         if attack_choice == "Draw 2" and custom_rules["stack_draw2"]:
             plus2_indices = [i for i, c in enumerate(player_hand) if "+2" in c]
             if plus2_indices:
-                # Player has a +2 card -> Auto-stack it automatically without asking options
                 plus2_idx = plus2_indices[0]
                 played_2 = player_hand.pop(plus2_idx)
                 print(">>> AUTO STACKED +2 PLAYED: " + played_2)
                 
-                # Show pop-up screen saying "STACKED +2!"
                 brain.screen.set_fill_color(Color.BLACK)
                 brain.screen.set_pen_color(Color.GREEN)
                 brain.screen.clear_screen()
@@ -964,11 +893,9 @@ while True:
                 brain.screen.print("   STACKED +2!   ")
                 wait(1000, MSEC)
                 
-                # Deliver stacked card to center
                 robot_deliver_card(played_2)
                 penalty = 0
             else:
-                # Player does NOT have a +2 card -> show pop-up "TOOK CARDS"
                 brain.screen.set_fill_color(Color.BLACK)
                 brain.screen.set_pen_color(Color.RED)
                 brain.screen.clear_screen()
@@ -984,11 +911,11 @@ while True:
                     player_hand.append(drawn)
             view_full_hand(player_hand)
 
-    # STEP 3: Prompt for Top Card Color -> Top Card Value (Green option text)
+        continue
+
     discard_top = input_top_card()
     print_hand_to_console(player_hand, uno_deck, discard_top)
 
-    # STEP 4: Player plays card / draws card (Turn menu option order: Play Card -> Draw 1 Card -> View Hand)
     discard_top = process_player_turn(discard_top, player_hand, uno_deck)
 
     if check_game_over(player_hand):
